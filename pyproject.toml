@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ifa_nextcloud"
+version = "0.1.0"
+authors = [
+    {name = "ifake", email = "your@email.com"},
+]
+description = "Python библиотека для создания ботов в Nextcloud Talk с API, похожим на python-telegram-bot"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["nextcloud", "talk", "bot", "chat", "messaging", "ifa"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "requests>=2.25.0",
+    "loguru>=0.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ifake/ifa_nextcloud"  # ⬅️ можно свой репозиторий
+Repository = "https://github.com/ifake/ifa_nextcloud.git"
+Issues = "https://github.com/ifake/ifa_nextcloud/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nextcloud"]
