@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ifa_nextcloud"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     {name = "ifake", email = "your@email.com"},
 ]
@@ -28,9 +28,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ifake/ifa_nextcloud"  # ⬅️ можно свой репозиторий
-Repository = "https://github.com/ifake/ifa_nextcloud.git"
-Issues = "https://github.com/ifake/ifa_nextcloud/issues"
+Homepage = "https://github.com/ifake/nextcloud"
+Repository = "https://github.com/ifake/nextcloud.git"
+Issues = "https://github.com/ifake/nextcloud/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nextcloud"]
