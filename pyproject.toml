@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Python библиотека для создания ботов в Nextcloud Talk с API, похожим на python-telegram-bot"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 keywords = ["nextcloud", "talk", "bot", "chat", "messaging", "ifa"]
 classifiers = [
