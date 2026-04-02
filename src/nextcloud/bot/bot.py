@@ -170,9 +170,9 @@ class Bot:
             else:
                 raise ValueError(f"Unsupported method: {method}")
 
-            logger.debug(f"Request: {method} {url}")
-            logger.debug(f"Status: {response.status_code}")
-            logger.debug(f"response: {json.dumps(response.json(), indent=2, ensure_ascii=False, default=str)}")
+            logger.trace(f"Request: {method} {url}")
+            logger.trace(f"Status: {response.status_code}")
+            logger.trace(f"response: {json.dumps(response.json(), indent=2, ensure_ascii=False, default=str)}")
 
             # 401 Unauthorized - пробуем переавторизоваться
             if response.status_code == 401 and retry:
