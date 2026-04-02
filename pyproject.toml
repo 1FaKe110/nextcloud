@@ -28,9 +28,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ifake/nextcloud"
-Repository = "https://github.com/ifake/nextcloud.git"
-Issues = "https://github.com/ifake/nextcloud/issues"
+Homepage = "https://github.com/1FaKe110/nextcloud"
+Repository = "https://github.com/1FaKe110/nextcloud.git"
+Issues = "https://github.com/1FaKe110/nextcloud/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nextcloud"]
