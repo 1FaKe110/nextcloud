@@ -307,7 +307,7 @@ logger.add(sys.stderr, level="DEBUG")  # Подробное логировани
 ### Простой эхо-бот
 
 ```python
-from core.nextcloud import Bot
+from nextcloud import Bot
 
 bot = Bot(
     host="https://nextcloud.example.com",
@@ -331,7 +331,7 @@ bot.run_polling()
 
 ```python
 import time
-from core.nextcloud import Bot
+from nextcloud import Bot
 
 class NotificationBot:
     def __init__(self, host, user, password, room_token):
@@ -382,7 +382,7 @@ notifier.send_file_notification("Отчет", "/tmp/report.pdf", "Ежемеся
 ### Бот с обработкой команд
 
 ```python
-from core.nextcloud import Bot
+from nextcloud import Bot
 from datetime import datetime
 
 bot = Bot(
