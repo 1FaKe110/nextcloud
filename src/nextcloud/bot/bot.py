@@ -598,18 +598,16 @@ class Bot:
             'setReadMarker': 0
         }
 
-        logger.info(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
-
         result = self._make_request('POST', endpoint, data=data, params=params)
         if result is not None and result != {}:
-            logger.debug("Сообщение успешно отправлено")
+            logger.success(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
             return True
 
         # Fallback: пробуем без параметров
-        logger.warning("Отправка с параметрами не удалась, пробуем без них...")
+        logger.trace("Отправка с параметрами не удалась, пробуем без них...")
         result = self._make_request('POST', endpoint, data=data)
         if result is not None and result != {}:
-            logger.debug("Сообщение успешно отправлено (без параметров)")
+            logger.success("Сообщение успешно отправлено (без параметров)")
             return True
 
         logger.error("Не удалось отправить текстовое сообщение")
@@ -812,13 +810,13 @@ class Bot:
                 fileid_elem = root.find('.//oc:fileid', namespaces)
                 if fileid_elem is not None and fileid_elem.text:
                     file_id = fileid_elem.text
-                    logger.debug(f"Найден fileid для {file_name}: {file_id}")
+                    logger.trace(f"Найден fileid для {file_name}: {file_id}")
                     return file_id
 
                 # Пробуем nc:fileid (альтернативный namespace)
                 fileid_elem = root.find('.//nc:fileid', namespaces)
                 if fileid_elem is not None and fileid_elem.text:
-                    logger.debug(f"Найден fileid (nc) для {file_name}: {fileid_elem.text}")
+                    logger.trace(f"Найден fileid (nc) для {file_name}: {fileid_elem.text}")
                     return fileid_elem.text
 
                 logger.warning(f"Не удалось найти fileid для {file_name}")
@@ -964,7 +962,7 @@ class Bot:
         message = self._create_message_object(msg_data, chat_id)
 
         if message.from_user.id == self.user:
-            logger.debug(f"Игнорируем свое сообщение")
+            logger.trace(f"Игнорируем свое сообщение")
             return
 
         logger.info(f"{message.from_user.full_name}: {message.text}")
@@ -1230,7 +1228,7 @@ class Bot:
                 return share_url
             else:
                 logger.warning(f"Не удалось создать публичную ссылку для {file_name}")
-                logger.debug(f"Ответ API: {result}")
+                logger.trace(f"Ответ API: {result}")
                 return None
 
         except Exception as e:
