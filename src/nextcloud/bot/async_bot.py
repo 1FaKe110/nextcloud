@@ -405,13 +405,14 @@ class AsyncBot(BotCore):
 
         params = {'lookIntoFuture': 0, 'setReadMarker': 0}
 
+        # params теперь поддерживается
         response = await self.http.post(endpoint, data=data, params=params)
+
         if response.data is not None and response.data != {}:
             logger.success(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
             return True
 
         # Fallback: пробуем без параметров
-        logger.trace("Отправка с параметрами не удалась, пробуем без них...")
         response = await self.http.post(endpoint, data=data)
         if response.data is not None and response.data != {}:
             logger.success("Сообщение успешно отправлено (без параметров)")
@@ -809,8 +810,12 @@ class AsyncBot(BotCore):
         Args:
             poll_interval: Интервал опроса для новых комнат
         """
+        # Убеждаемся, что сессия создана
+        await self._ensure_session()
+
         try:
             rooms = await self.get_rooms()
+            logger.info(f"Синхронизация: найдено {len(rooms)} комнат")
 
             current_rooms = set()
             for room in rooms:
@@ -838,6 +843,7 @@ class AsyncBot(BotCore):
 
         except Exception as e:
             logger.error(f"Ошибка при синхронизации комнат: {e}")
+            logger.error(traceback.format_exc())
 
     async def _sync_rooms_loop(self, poll_interval: float = 2, sync_interval: int = 60):
         """
@@ -881,9 +887,24 @@ class AsyncBot(BotCore):
         # Убеждаемся, что сессия создана
         await self._ensure_session()
 
+        # Проверяем аутентификацию
+        status = await self.check_session_status()
+        if not status.get('authenticated'):
+            logger.error(f"Ошибка аутентификации: {status}")
+            logger.error("Проверьте логин и пароль/токен приложения")
+            return
+
+        logger.info(f"Аутентификация успешна как: {status.get('user')}")
+
         # Получаем начальный список комнат
         rooms = await self.get_rooms()
         logger.info(f"Найдено {len(rooms)} доступных комнат")
+
+        if not rooms:
+            logger.warning("Не найдено ни одной комнаты. Проверьте:")
+            logger.warning("1. Что бот добавлен в комнату")
+            logger.warning("2. Правильность токена приложения")
+            logger.warning("3. Права доступа бота")
 
         self.running = True
 

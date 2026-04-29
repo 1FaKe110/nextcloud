@@ -72,18 +72,7 @@ class AsyncHTTPClient(BaseHTTPClient):
             retry: bool = True,
             **kwargs
     ) -> HttpResponse:
-        """
-        Внутренний метод выполнения запроса с обработкой 401.
-
-        Args:
-            method: HTTP метод
-            url: Полный URL
-            retry: Флаг повторной попытки
-            **kwargs: Параметры для aiohttp
-
-        Returns:
-            HttpResponse объект
-        """
+        """Внутренний метод выполнения запроса с обработкой 401."""
         await self._ensure_session()
 
         # Добавляем OCS параметр format=json если его нет
@@ -95,7 +84,6 @@ class AsyncHTTPClient(BaseHTTPClient):
 
         # Таймаут по умолчанию
         if 'timeout' not in kwargs:
-            # aiohttp требует объект ClientTimeout
             kwargs['timeout'] = aiohttp.ClientTimeout(total=30)
 
         try:
@@ -105,19 +93,25 @@ class AsyncHTTPClient(BaseHTTPClient):
 
                 # При 401 пробуем переавторизоваться
                 if status_code == 401 and retry:
+                    logger.warning(f"Получен 401 для {url}, пересоздаём сессию...")
                     await self._reinit_session()
                     return await self._make_request(method, url, retry=False, **kwargs)
 
                 # Парсим ответ
                 data = {}
-                if status_code in [200, 201]:
+                if status_code in [200, 201, 207]:  # 207 - Multi-status для PROPFIND
                     try:
-                        json_response = json.loads(raw_text) if raw_text else {}
-                        # Извлекаем ocs.data как в оригинальном боте
-                        data = json_response.get('ocs', {}).get('data', {})
+                        # Для PROPFIND не парсим JSON
+                        if 'xml' in response.headers.get('content-type', ''):
+                            data = {}  # XML обрабатывается отдельно
+                        else:
+                            json_response = json.loads(raw_text) if raw_text else {}
+                            data = json_response.get('ocs', {}).get('data', {})
                     except json.JSONDecodeError:
-                        logger.error(f"Ошибка парсинга JSON: {raw_text[:200]}")
+                        if raw_text and not raw_text.startswith('<?xml'):
+                            logger.error(f"Ошибка парсинга JSON: {raw_text[:200]}")
 
+                logger.debug(f"Request {method} {url} -> {status_code}")
                 return HttpResponse(
                     status_code=status_code,
                     data=data,
@@ -125,6 +119,9 @@ class AsyncHTTPClient(BaseHTTPClient):
                     headers=dict(response.headers)
                 )
 
+        except aiohttp.ClientResponseError as e:
+            logger.error(f"ClientResponseError: {e.status} {e.message}")
+            return HttpResponse(status_code=e.status, data={}, raw_text=str(e))
         except asyncio.TimeoutError:
             logger.error(f"Timeout при запросе к {url}")
             return HttpResponse(status_code=408, data={}, raw_text="Timeout")
@@ -182,10 +179,12 @@ class AsyncHTTPClient(BaseHTTPClient):
             endpoint: str,
             data: Optional[Dict] = None,
             json_data: Optional[Dict] = None,
-            files: Optional[Dict] = None
+            files: Optional[Dict] = None,
+            params: Optional[Dict] = None  # Добавить этот параметр
     ) -> HttpResponse:
         """POST запрос"""
-        return await self.request('POST', endpoint, data=data, json_data=json_data, files=files)
+        return await self.request('POST', endpoint, data=data, json_data=json_data, files=files, params=params)
+
 
     async def put(self, endpoint: str, data: Any, headers: Optional[Dict] = None) -> HttpResponse:
         """

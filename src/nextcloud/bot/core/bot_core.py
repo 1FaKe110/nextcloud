@@ -7,6 +7,7 @@ import time
 import os
 import mimetypes
 import threading
+import traceback
 from datetime import datetime
 from typing import Optional, Callable, Dict, Any, List, Union, Tuple
 from loguru import logger
@@ -81,23 +82,45 @@ class BotCore:
         # Способ 1: Проверяем поле messageParameters на наличие файлов
         message_params = msg_data.get('messageParameters', {})
 
-        for key, param in message_params.items():
-            if param.get('type') == 'file':
-                file_info = {
-                    'file_id': param.get('id', ''),
-                    'file_name': param.get('name', 'unknown'),
-                    'file_size': param.get('size', 0),
-                    'mime_type': param.get('mimetype', 'application/octet-stream'),
-                    'file_path': param.get('path', ''),
-                    'download_url': param.get('link', ''),
-                    'direct_link': param.get('directLink', '')
-                }
-                files.append(File(**file_info))
+        # Важно: messageParameters может быть либо словарём, либо списком
+        if isinstance(message_params, dict):
+            for key, param in message_params.items():
+                if param.get('type') == 'file':
+                    file_info = {
+                        'file_id': param.get('id', ''),
+                        'file_name': param.get('name', 'unknown'),
+                        'file_size': param.get('size', 0),
+                        'mime_type': param.get('mimetype', 'application/octet-stream'),
+                        'file_path': param.get('path', ''),
+                        'download_url': param.get('link', ''),
+                        'direct_link': param.get('directLink', '')
+                    }
+                    files.append(File(**file_info))
+        elif isinstance(message_params, list):
+            # Если это список - итерируем напрямую
+            for param in message_params:
+                if isinstance(param, dict) and param.get('type') == 'file':
+                    file_info = {
+                        'file_id': param.get('id', ''),
+                        'file_name': param.get('name', 'unknown'),
+                        'file_size': param.get('size', 0),
+                        'mime_type': param.get('mimetype', 'application/octet-stream'),
+                        'file_path': param.get('path', ''),
+                        'download_url': param.get('link', ''),
+                        'direct_link': param.get('directLink', '')
+                    }
+                    files.append(File(**file_info))
 
         # Способ 2: Проверяем системные сообщения о расшаренных файлах
         system_message = msg_data.get('systemMessage', '')
         if system_message == 'file_shared':
-            file_param = message_params.get('file', {})
+            # message_params может быть словарём или списком
+            if isinstance(message_params, dict):
+                file_param = message_params.get('file', {})
+            else:
+                # Если список, ищем элемент с type='file'
+                file_param = next((p for p in message_params if isinstance(p, dict) and p.get('type') == 'file'), {})
+
             if file_param:
                 file_info = {
                     'file_id': file_param.get('id', ''),
@@ -129,9 +152,19 @@ class BotCore:
 
         # Альтернативный способ через messageParameters
         message_params = msg_data.get('messageParameters', {})
-        if message_params.get('forward'):
-            is_forwarded = True
-            forward_origin = message_params.get('forward', {}).get('name', 'unknown')
+
+        # messageParameters может быть списком или словарём
+        if isinstance(message_params, dict):
+            forward_param = message_params.get('forward')
+            is_forwarded = is_forwarded or (forward_param is not None)
+            if forward_param:
+                forward_origin = forward_param.get('name', 'unknown')
+        elif isinstance(message_params, list):
+            forward_param = next((p for p in message_params if isinstance(p, dict) and p.get('type') == 'forward'),
+                                 None)
+            if forward_param:
+                is_forwarded = True
+                forward_origin = forward_param.get('name', 'unknown')
 
         return is_forwarded, forward_origin
 

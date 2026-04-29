@@ -153,10 +153,11 @@ class SyncHTTPClient(BaseHTTPClient):
             endpoint: str,
             data: Optional[Dict] = None,
             json_data: Optional[Dict] = None,
-            files: Optional[Dict] = None
+            files: Optional[Dict] = None,
+            params: Optional[Dict] = None  # Добавить
     ) -> HttpResponse:
         """POST запрос"""
-        return self.request('POST', endpoint, data=data, json_data=json_data, files=files)
+        return self.request('POST', endpoint, data=data, json_data=json_data, files=files, params=params)
 
     def put(self, endpoint: str, data: Any, headers: Optional[Dict] = None) -> HttpResponse:
         """
