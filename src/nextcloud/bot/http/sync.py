@@ -112,6 +112,7 @@ class SyncHTTPClient(BaseHTTPClient):
             logger.error(f"Ошибка запроса: {e}")
             return HttpResponse(status_code=0, data={}, raw_text=str(e))
 
+
     def request(
             self,
             method: str,
