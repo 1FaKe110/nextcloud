@@ -111,7 +111,7 @@ class AsyncHTTPClient(BaseHTTPClient):
                         if raw_text and not raw_text.startswith('<?xml'):
                             logger.error(f"Ошибка парсинга JSON: {raw_text[:200]}")
 
-                logger.debug(f"Request {method} {url} -> {status_code}")
+                logger.trace(f"Request {method} {url} -> {status_code}")
                 return HttpResponse(
                     status_code=status_code,
                     data=data,

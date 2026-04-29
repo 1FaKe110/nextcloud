@@ -67,59 +67,42 @@ class BotCore:
     # ========== Вспомогательные методы для работы с API ==========
 
     def _extract_file_from_message(self, msg_data: Dict, chat_id: str) -> List[File]:
-        """
-        Извлечь информацию о файлах из сообщения.
-
-        Args:
-            msg_data: Данные сообщения из API
-            chat_id: ID чата
-
-        Returns:
-            Список File объектов
-        """
+        """Извлечь информацию о файлах из сообщения"""
         files = []
 
         # Способ 1: Проверяем поле messageParameters на наличие файлов
         message_params = msg_data.get('messageParameters', {})
 
-        # Важно: messageParameters может быть либо словарём, либо списком
+        # ВАЖНО: message_params может быть как словарём, так и списком
         if isinstance(message_params, dict):
-            for key, param in message_params.items():
-                if param.get('type') == 'file':
-                    file_info = {
-                        'file_id': param.get('id', ''),
-                        'file_name': param.get('name', 'unknown'),
-                        'file_size': param.get('size', 0),
-                        'mime_type': param.get('mimetype', 'application/octet-stream'),
-                        'file_path': param.get('path', ''),
-                        'download_url': param.get('link', ''),
-                        'direct_link': param.get('directLink', '')
-                    }
-                    files.append(File(**file_info))
+            params_iter = message_params.items()
         elif isinstance(message_params, list):
-            # Если это список - итерируем напрямую
-            for param in message_params:
-                if isinstance(param, dict) and param.get('type') == 'file':
-                    file_info = {
-                        'file_id': param.get('id', ''),
-                        'file_name': param.get('name', 'unknown'),
-                        'file_size': param.get('size', 0),
-                        'mime_type': param.get('mimetype', 'application/octet-stream'),
-                        'file_path': param.get('path', ''),
-                        'download_url': param.get('link', ''),
-                        'direct_link': param.get('directLink', '')
-                    }
-                    files.append(File(**file_info))
+            params_iter = enumerate(message_params)
+        else:
+            params_iter = []
+
+        for key, param in params_iter:
+            if isinstance(param, dict) and param.get('type') == 'file':
+                file_info = {
+                    'file_id': param.get('id', ''),
+                    'file_name': param.get('name', 'unknown'),
+                    'file_size': param.get('size', 0),
+                    'mime_type': param.get('mimetype', 'application/octet-stream'),
+                    'file_path': param.get('path', ''),
+                    'download_url': param.get('link', ''),
+                    'direct_link': param.get('directLink', '')
+                }
+                files.append(File(**file_info))
 
         # Способ 2: Проверяем системные сообщения о расшаренных файлах
         system_message = msg_data.get('systemMessage', '')
         if system_message == 'file_shared':
-            # message_params может быть словарём или списком
             if isinstance(message_params, dict):
                 file_param = message_params.get('file', {})
-            else:
-                # Если список, ищем элемент с type='file'
+            elif isinstance(message_params, list):
                 file_param = next((p for p in message_params if isinstance(p, dict) and p.get('type') == 'file'), {})
+            else:
+                file_param = {}
 
             if file_param:
                 file_info = {
@@ -136,28 +119,20 @@ class BotCore:
         return files
 
     def _get_forward_info(self, msg_data: Dict) -> Tuple[bool, Optional[str]]:
-        """
-        Получить информацию о пересылке сообщения.
-
-        Returns:
-            (is_forwarded, forward_origin)
-        """
+        """Получить информацию о пересылке сообщения"""
         is_forwarded = False
         forward_origin = None
 
-        # Проверяем наличие информации о пересылке
         if msg_data.get('isForwarded'):
             is_forwarded = True
             forward_origin = msg_data.get('forwardedFrom', {}).get('actorDisplayName', 'unknown')
 
-        # Альтернативный способ через messageParameters
         message_params = msg_data.get('messageParameters', {})
 
-        # messageParameters может быть списком или словарём
         if isinstance(message_params, dict):
             forward_param = message_params.get('forward')
-            is_forwarded = is_forwarded or (forward_param is not None)
             if forward_param:
+                is_forwarded = True
                 forward_origin = forward_param.get('name', 'unknown')
         elif isinstance(message_params, list):
             forward_param = next((p for p in message_params if isinstance(p, dict) and p.get('type') == 'forward'),

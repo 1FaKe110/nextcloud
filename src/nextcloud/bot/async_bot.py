@@ -393,7 +393,10 @@ class AsyncBot(BotCore):
             return False
 
     async def _send_text_message_async(self, chat_id: str, text: str, reply_to_message_id: int = None) -> bool:
-        """Отправить только текстовое сообщение (асинхронная версия)."""
+        """
+        Отправить только текстовое сообщение (асинхронная версия).
+        Полностью повторяет логику оригинального async_bot.
+        """
         if not text:
             logger.warning("Нет текста для отправки")
             return False
@@ -403,36 +406,27 @@ class AsyncBot(BotCore):
         if reply_to_message_id:
             data['replyTo'] = reply_to_message_id
 
-        params = {'lookIntoFuture': 0, 'setReadMarker': 0}
-
-        # params теперь поддерживается
-        response = await self.http.post(endpoint, data=data, params=params)
-
-        if response.data is not None and response.data != {}:
-            logger.success(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
-            return True
-
-        # Fallback: пробуем без параметров
+        # Отправляем без params, как в оригинале
         response = await self.http.post(endpoint, data=data)
-        if response.data is not None and response.data != {}:
-            logger.success("Сообщение успешно отправлено (без параметров)")
+
+        # В оригинале проверяли result is not None and result != {}
+        if response.status_code in [200, 201] and response.data is not None and response.data != {}:
+            logger.success(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
             return True
 
         logger.error("Не удалось отправить текстовое сообщение")
         return False
 
     async def _send_message_with_file_async(
-        self,
-        chat_id: str,
-        text: str,
-        file: Tuple[str, bytes, str],
-        reply_to_message_id: int = None
+            self,
+            chat_id: str,
+            text: str,
+            file: Tuple[str, bytes, str],
+            reply_to_message_id: int = None
     ) -> bool:
         """
         Отправить сообщение с файлом-вложением (асинхронная версия).
-
-        Args:
-            file: Кортеж (filename, content, mime_type)
+        Полностью повторяет логику оригинального async_bot.
         """
         file_name, file_content, mime_type = file
         logger.info(f"📤 Отправка файла {file_name} в комнату {chat_id}")
@@ -483,20 +477,18 @@ class AsyncBot(BotCore):
     async def _get_file_id_async(self, file_name: str) -> str:
         """
         Получить ID загруженного файла через WebDAV PROPFIND (асинхронная версия).
-
-        Returns:
-            ID файла или "unknown"
+        Полностью повторяет логику оригинального async_bot.
         """
         webdav_url = f"/remote.php/dav/files/{self.http.user}/Talk/{file_name}"
 
         propfind_body = '''<?xml version="1.0"?>
-<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns">
-  <d:prop>
-    <oc:fileid />
-    <oc:size />
-    <d:getlastmodified />
-  </d:prop>
-</d:propfind>'''
+    <d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns">
+      <d:prop>
+        <oc:fileid />
+        <oc:size />
+        <d:getlastmodified />
+      </d:prop>
+    </d:propfind>'''
 
         try:
             response = await self.http.propfind(webdav_url, propfind_body)
@@ -530,9 +522,7 @@ class AsyncBot(BotCore):
     async def _create_public_share_async(self, file_id: str, file_name: str, password: str = None) -> Optional[str]:
         """
         Создать публичную ссылку на файл через Sharing API (асинхронная версия).
-
-        Returns:
-            URL публичной ссылки или None
+        Полностью повторяет логику оригинального async_bot.
         """
         if not file_id or file_id == "unknown":
             return None
