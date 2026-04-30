@@ -363,6 +363,9 @@ class AsyncBot(BotCore):
                 mime_type = mime_type or 'application/octet-stream'
                 file_to_send = (file_name, file_content, mime_type)
 
+            room_info = await self.get_room_info(chat_id)  # chat_id = "j9tmwxkk"
+            logger.info(f"Room info: {room_info}")
+            
             # Если есть файл - отправляем с файлом
             if file_to_send:
                 return await self._send_message_with_file_async(
@@ -393,10 +396,7 @@ class AsyncBot(BotCore):
             return False
 
     async def _send_text_message_async(self, chat_id: str, text: str, reply_to_message_id: int = None) -> bool:
-        """
-        Отправить только текстовое сообщение (асинхронная версия).
-        Полностью повторяет логику оригинального async_bot.
-        """
+        """Отправить только текстовое сообщение (асинхронная версия)."""
         if not text:
             logger.warning("Нет текста для отправки")
             return False
@@ -406,15 +406,26 @@ class AsyncBot(BotCore):
         if reply_to_message_id:
             data['replyTo'] = reply_to_message_id
 
-        # Отправляем без params, как в оригинале
-        response = await self.http.post(endpoint, data=data)
+        params = {'lookIntoFuture': 0, 'setReadMarker': 0}
 
-        # В оригинале проверяли result is not None and result != {}
-        if response.status_code in [200, 201] and response.data is not None and response.data != {}:
+        response = await self.http.post(endpoint, data=data, params=params)
+
+        # Исправлено: 200 или 201
+        if response.status_code in [200, 201] and response.data is not None:
             logger.success(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
             return True
 
+        # Fallback: пробуем без параметров
+        logger.trace("Отправка с параметрами не удалась, пробуем без них...")
+        response = await self.http.post(endpoint, data=data)
+        if response.status_code in [200, 201] and response.data is not None:
+            logger.success("Сообщение успешно отправлено (без параметров)")
+            return True
+
         logger.error("Не удалось отправить текстовое сообщение")
+        logger.debug(f'{response = }')
+        logger.debug(f'{response.status_code = }')
+        logger.debug(f'{response.raw_text = }')
         return False
 
     async def _send_message_with_file_async(
@@ -931,8 +942,8 @@ class AsyncBot(BotCore):
     async def run_polling(
         self,
         chat_id: str = None,
-        poll_interval: float = 2,
-        sync_interval: int = 60
+        poll_interval: float = 3,
+        sync_interval: int = 120
     ):
         """
         Запустить бота в режиме пулинга (асинхронный).
@@ -943,6 +954,16 @@ class AsyncBot(BotCore):
             poll_interval: Интервал опроса в секундах для каждой комнаты
             sync_interval: Интервал синхронизации списка комнат в секундах (multi-room режим)
         """
+        try:
+            poll_interval = float(os.getenv('NC_BOT_POLL_INTERVAL', poll_interval))
+        except (ValueError, TypeError):
+            logger.warning(f"Некорректное значение, используем {poll_interval}")
+
+        try:
+            sync_interval = int(os.getenv('NC_BOT_SYNC_INTERVAL', sync_interval))
+        except (ValueError, TypeError):
+            logger.warning(f"Некорректное значение, используем {sync_interval}")
+
         # Определяем режим работы
         if self.listen_all_rooms and not chat_id:
             await self.run_multi_room(poll_interval, sync_interval)

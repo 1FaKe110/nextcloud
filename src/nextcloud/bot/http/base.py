@@ -64,7 +64,8 @@ class BaseHTTPClient(ABC):
             endpoint: str,
             data: Optional[Dict] = None,
             json_data: Optional[Dict] = None,
-            files: Optional[Dict] = None
+            files: Optional[Dict] = None,
+            params: Optional[Dict] = None
     ) -> HttpResponse:
         """POST запрос"""
         pass

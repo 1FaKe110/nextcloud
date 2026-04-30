@@ -46,8 +46,7 @@ class AsyncHTTPClient(BaseHTTPClient):
             connector=self._connector,
             headers={
                 'OCS-APIRequest': 'true',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
             }
         )
 
@@ -65,15 +64,15 @@ class AsyncHTTPClient(BaseHTTPClient):
         if self._session is None:
             await self._init_session()
 
-    async def _make_request(
-            self,
-            method: str,
-            url: str,
-            retry: bool = True,
-            **kwargs
-    ) -> HttpResponse:
-        """Внутренний метод выполнения запроса с обработкой 401."""
+    async def _make_request(self, method: str, url: str, retry: bool = True, **kwargs) -> HttpResponse:
         await self._ensure_session()
+
+        # Логируем что отправляем
+        logger.debug(f"=== ACTUAL REQUEST ===")
+        logger.debug(f"URL: {url}")
+        logger.debug(f"Method: {method}")
+        logger.debug(f"kwargs: {kwargs}")
+        logger.debug(f"Session headers: {self._session._default_headers}")
 
         # Добавляем OCS параметр format=json если его нет
         if 'params' in kwargs:
@@ -142,31 +141,28 @@ class AsyncHTTPClient(BaseHTTPClient):
             files: Optional[Dict] = None,
             headers: Optional[Dict] = None,
     ) -> HttpResponse:
-        """
-        Выполнить HTTP запрос к API.
-        """
         url = urljoin(self.host, endpoint)
-
+        
         kwargs = {
             'params': params or {},
             'headers': headers or {}
         }
 
         if data:
+            # form data - aiohttp сам установит правильный Content-Type
             kwargs['data'] = data
-        if json_data:
+        elif json_data:
             kwargs['json'] = json_data
-        if files:
-            # aiohttp обрабатывает files через форму
-            # files должен быть dict {field: (filename, content, content_type)}
-            kwargs['data'] = aiohttp.FormData()
+        elif files:
+            form = aiohttp.FormData()
             for field, file_tuple in files.items():
-                kwargs['data'].add_field(
+                form.add_field(
                     field,
                     file_tuple[1],
                     filename=file_tuple[0],
                     content_type=file_tuple[2] if len(file_tuple) > 2 else 'application/octet-stream'
                 )
+            kwargs['data'] = form
 
         return await self._make_request(method, url, **kwargs)
 
@@ -180,11 +176,18 @@ class AsyncHTTPClient(BaseHTTPClient):
             data: Optional[Dict] = None,
             json_data: Optional[Dict] = None,
             files: Optional[Dict] = None,
-            params: Optional[Dict] = None  # Добавить этот параметр
+            params: Optional[Dict] = None
     ) -> HttpResponse:
         """POST запрос"""
-        return await self.request('POST', endpoint, data=data, json_data=json_data, files=files, params=params)
+        # Определяем, какой эндпоинт
+        is_chat_endpoint = '/chat/' in endpoint
 
+        if is_chat_endpoint and data and not files:
+            # Для чата используем form-urlencoded, а не JSON
+            return await self.request('POST', endpoint, data=data, params=params)
+        else:
+            # Для остальных - JSON
+            return await self.request('POST', endpoint, json_data=json_data or data, params=params)
 
     async def put(self, endpoint: str, data: Any, headers: Optional[Dict] = None) -> HttpResponse:
         """
