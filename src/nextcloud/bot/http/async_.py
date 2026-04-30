@@ -67,13 +67,6 @@ class AsyncHTTPClient(BaseHTTPClient):
     async def _make_request(self, method: str, url: str, retry: bool = True, **kwargs) -> HttpResponse:
         await self._ensure_session()
 
-        # Логируем что отправляем
-        logger.debug(f"=== ACTUAL REQUEST ===")
-        logger.debug(f"URL: {url}")
-        logger.debug(f"Method: {method}")
-        logger.debug(f"kwargs: {kwargs}")
-        logger.debug(f"Session headers: {self._session._default_headers}")
-
         # Добавляем OCS параметр format=json если его нет
         if 'params' in kwargs:
             if 'format' not in kwargs['params']:
@@ -90,25 +83,33 @@ class AsyncHTTPClient(BaseHTTPClient):
                 status_code = response.status
                 raw_text = await response.text()
 
+                # Получаем content-type
+                content_type = response.headers.get('content-type', '').lower()
+
                 # При 401 пробуем переавторизоваться
                 if status_code == 401 and retry:
                     logger.warning(f"Получен 401 для {url}, пересоздаём сессию...")
                     await self._reinit_session()
                     return await self._make_request(method, url, retry=False, **kwargs)
 
-                # Парсим ответ
+                # Парсим ответ только если это JSON
                 data = {}
-                if status_code in [200, 201, 207]:  # 207 - Multi-status для PROPFIND
+                if status_code in [200, 201, 207]:
                     try:
-                        # Для PROPFIND не парсим JSON
-                        if 'xml' in response.headers.get('content-type', ''):
-                            data = {}  # XML обрабатывается отдельно
-                        else:
+                        # Для PROPFIND или XML не парсим JSON
+                        if 'xml' in content_type:
+                            data = {}
+                        elif 'json' in content_type:
                             json_response = json.loads(raw_text) if raw_text else {}
                             data = json_response.get('ocs', {}).get('data', {})
+                        else:
+                            # Не JSON и не XML - оставляем как есть
+                            data = {}
                     except json.JSONDecodeError:
-                        if raw_text and not raw_text.startswith('<?xml'):
-                            logger.error(f"Ошибка парсинга JSON: {raw_text[:200]}")
+                        # Если не JSON, но и не ошибка - просто логируем трейс
+                        if not raw_text.startswith('<?xml') and status_code != 500:
+                            logger.trace(f"Не JSON ответ (status={status_code}): {raw_text[:100]}")
+                        # Не падаем, возвращаем пустой data
 
                 logger.trace(f"Request {method} {url} -> {status_code}")
                 return HttpResponse(

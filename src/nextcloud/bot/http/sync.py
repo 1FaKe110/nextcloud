@@ -74,15 +74,21 @@ class SyncHTTPClient(BaseHTTPClient):
 
             if response.status_code in [200, 201, 207]:
                 try:
-                    # Для PROPFIND не парсим JSON
-                    if 'xml' in response.headers.get('content-type', ''):
+                    content_type = response.headers.get('content-type', '').lower()
+
+                    # Для PROPFIND или XML не парсим JSON
+                    if 'xml' in content_type:
                         data = {}
-                    else:
+                    elif 'json' in content_type:
                         json_response = response.json()
                         data = json_response.get('ocs', {}).get('data', {})
+                    else:
+                        # Не JSON и не XML - оставляем как есть
+                        data = {}
                 except json.JSONDecodeError:
-                    if raw_text and not raw_text.startswith('<?xml'):
-                        logger.error(f"Ошибка парсинга JSON: {raw_text[:200]}")
+                    # Если не JSON, но и не ошибка - логируем только trace
+                    if not raw_text.startswith('<?xml') and response.status_code != 500:
+                        logger.trace(f"Не JSON ответ (status={response.status_code}): {raw_text[:100]}")
 
             return HttpResponse(
                 status_code=response.status_code,
