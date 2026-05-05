@@ -9,7 +9,7 @@ class HttpResponse:
     """Единый формат ответа от HTTP клиента"""
     status_code: int
     data: Dict[str, Any]  # Распарсенный JSON (ocs.data)
-    raw_text: Optional[str] = None
+    raw_text: Union[str, bytes, None] = None  # Может быть строкой или байтами
     headers: Optional[Dict[str, str]] = None
 
 

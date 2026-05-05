@@ -564,40 +564,50 @@ class AsyncBot(BotCore):
             return None
 
     async def download_file_async(self, file_obj: File, save_path: Optional[str] = None) -> Union[bytes, str, None]:
-        """
-        Скачать файл с сервера (асинхронная версия).
-
-        Args:
-            file_obj: File объект из сообщения
-            save_path: Путь для сохранения. Если None - вернуть байты
-
-        Returns:
-            Байты или путь к файлу
-        """
         try:
-            # Пробуем через WebDAV
-            file_url = f"/remote.php/dav/files/{self.http.user}/{file_obj.file_path}"
-            response = await self.http.get(file_url)
+            if file_obj.file_path:
+                # Путь может быть как "Talk/file.jpg" так и просто "file.jpg"
+                webdav_path = file_obj.file_path
+                if not webdav_path.startswith('Talk/'):
+                    webdav_path = f"Talk/{webdav_path}"
 
-            if response.status_code == 200:
-                content = response.raw_text.encode() if isinstance(response.raw_text, str) else response.raw_text
-                if save_path:
-                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                    with open(save_path, 'wb') as f:
-                        f.write(content if isinstance(content, bytes) else content.encode())
-                    return save_path
-                return content if isinstance(content, bytes) else content.encode()
+                webdav_url = f"/remote.php/dav/files/{self.http.user}/{webdav_path}"
 
-            # Пробуем прямую ссылку
-            if file_obj.download_url:
-                response = await self.http.get(file_obj.download_url)
+                logger.info(f"Скачивание через WebDAV: {webdav_url}")
+                response = await self.http.get(webdav_url)
+
                 if response.status_code == 200:
-                    content = response.raw_text.encode() if isinstance(response.raw_text, str) else response.raw_text
+                    content = response.raw_text
+
+                    # Проверяем тип содержимого
+                    if isinstance(content, bytes):
+                        logger.info(f"Получено {len(content)} байт")
+                        file_bytes = content
+                    elif isinstance(content, str):
+                        # Проверяем, не HTML ли это
+                        if content.strip().startswith('<!DOCTYPE') or content.strip().startswith('<?xml'):
+                            logger.error("Получен HTML/XML вместо файла")
+                            return None
+                        file_bytes = content.encode('utf-8')
+                    else:
+                        logger.error(f"Неизвестный тип содержимого: {type(content)}")
+                        return None
+
+                    # Проверяем, что файл не слишком маленький (ошибка)
+                    if len(file_bytes) < 100 and b'<!DOCTYPE' in file_bytes[:100]:
+                        logger.error("Получен HTML вместо файла")
+                        return None
+
                     if save_path:
+                        os.makedirs(os.path.dirname(save_path), exist_ok=True)
                         with open(save_path, 'wb') as f:
-                            f.write(content if isinstance(content, bytes) else content.encode())
+                            f.write(file_bytes)
+                        logger.success(f"Файл сохранён: {save_path}")
                         return save_path
-                    return content if isinstance(content, bytes) else content.encode()
+                    return file_bytes
+                else:
+                    logger.error(f"Ошибка HTTP {response.status_code}")
+                    return None
 
             logger.error(f"Не удалось скачать файл {file_obj.file_name}")
             return None
