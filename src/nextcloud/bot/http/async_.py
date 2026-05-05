@@ -81,10 +81,28 @@ class AsyncHTTPClient(BaseHTTPClient):
         try:
             async with self._session.request(method, url, **kwargs) as response:
                 status_code = response.status
-                raw_text = await response.text()
 
-                # Получаем content-type
+                # Определяем, бинарный ли ответ
                 content_type = response.headers.get('content-type', '').lower()
+
+                # Проверяем по method и URL
+                is_binary = False
+                if method == 'GET' and '/remote.php/dav/files/' in url:
+                    is_binary = True
+
+                # Проверяем по content-type
+                binary_types = ['image/', 'video/', 'audio/', 'application/pdf', 'application/octet-stream']
+                for bt in binary_types:
+                    if content_type.startswith(bt):
+                        is_binary = True
+                        break
+
+                # Читаем ответ
+                if is_binary:
+                    raw_content = await response.read()
+                    raw_text = raw_content  # bytes
+                else:
+                    raw_text = await response.text()
 
                 # При 401 пробуем переавторизоваться
                 if status_code == 401 and retry:
@@ -92,24 +110,18 @@ class AsyncHTTPClient(BaseHTTPClient):
                     await self._reinit_session()
                     return await self._make_request(method, url, retry=False, **kwargs)
 
-                # Парсим ответ только если это JSON
+                # Парсим JSON только для текстовых ответов
                 data = {}
-                if status_code in [200, 201, 207]:
+                if not is_binary and status_code in [200, 201, 207]:
                     try:
-                        # Для PROPFIND или XML не парсим JSON
                         if 'xml' in content_type:
                             data = {}
-                        elif 'json' in content_type:
+                        elif 'json' in content_type and isinstance(raw_text, str):
                             json_response = json.loads(raw_text) if raw_text else {}
                             data = json_response.get('ocs', {}).get('data', {})
-                        else:
-                            # Не JSON и не XML - оставляем как есть
-                            data = {}
                     except json.JSONDecodeError:
-                        # Если не JSON, но и не ошибка - просто логируем трейс
                         if not raw_text.startswith('<?xml') and status_code != 500:
-                            logger.trace(f"Не JSON ответ (status={status_code}): {raw_text[:100]}")
-                        # Не падаем, возвращаем пустой data
+                            logger.trace(f"Не JSON ответ: {raw_text[:100]}")
 
                 logger.trace(f"Request {method} {url} -> {status_code}")
                 return HttpResponse(
