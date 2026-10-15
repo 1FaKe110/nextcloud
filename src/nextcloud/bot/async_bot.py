@@ -364,7 +364,7 @@ class AsyncBot(BotCore):
                 file_to_send = (file_name, file_content, mime_type)
 
             room_info = await self.get_room_info(chat_id)  # chat_id = "j9tmwxkk"
-            logger.info(f"Room info: {room_info}")
+            logger.trace(f"Room info: {room_info}")
             
             # Если есть файл - отправляем с файлом
             if file_to_send:
@@ -412,7 +412,7 @@ class AsyncBot(BotCore):
 
         # Исправлено: 200 или 201
         if response.status_code in [200, 201] and response.data is not None:
-            logger.success(f"Отправка текстового сообщения в {chat_id}: {text[:50]}...")
+            logger.success(f"Отправка текстового сообщения в {chat_id} ({len(text)} bytes)")
             return True
 
         # Fallback: пробуем без параметров
